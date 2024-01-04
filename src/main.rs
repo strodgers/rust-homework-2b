@@ -5,7 +5,10 @@ use std::io::{BufRead, BufReader};
 use std::fs::File;
 use std::convert::TryFrom;
 
+#[derive(Debug)]
 enum EnumLine {
+    // Debug for printing
+
     NameAndNumber(String, u32),
     NameOnly(String)
 }
@@ -21,32 +24,46 @@ impl TryFrom<&String> for EnumLine {
         let name = iter.next().ok_or("Expected name string")?;
 
         // Get the number, if it fails assume name only
-        let number_str = iter.next();
-        if number_str.is_none() {
-            return Ok(EnumLine::NameOnly(name.to_string()));
+        match iter.next() {
+            Some(number_str) => 
+                return Ok(EnumLine::NameAndNumber(name.to_string(), number_str.parse::<u32>()?)),
+            None => return Ok(EnumLine::NameOnly(name.to_string()))
         }
-
-        // Parse the number
-        let number = number_str.ok_or("Expected a number string")?
-            .parse::<u32>();
-        if number.is_err() {
-            return Ok(EnumLine::NameOnly(name.to_string()));
-        }
-        
-        Ok(EnumLine::NameAndNumber(name.to_string(), number?))
     }
-
 }
-fn main() -> Result<(), Box<dyn Error>> {
-    let fname = PathBuf::from(args().nth(1).ok_or("Expected filename")?);
-    let buffread = BufReader::new(File::open(&fname)?);
-   
+
+fn read_data(fname: &PathBuf) -> Result<Vec<EnumLine>, Box<dyn std::error::Error>> {
+    let buffread = BufReader::new(File::open(fname)?);
+    let mut vec = Vec::new();
+
     for line_result in buffread.lines() {
         let line = line_result?;
-        let enum_line = EnumLine::try_from(&line)?;
-        match enum_line {
-            EnumLine::NameAndNumber(name, number) => println!("Name: {}, Number: {}", name, number),
-            EnumLine::NameOnly(name) => println!("Name: {}", name)
+        match EnumLine::try_from(&line) {
+            Ok(enum_line) => vec.push(enum_line),
+            Err(err) => {
+                println!("Error encountered: {}", err);
+                return Err(err);
+            }
+        }
+    }
+
+    Ok(vec)
+}
+fn main() -> Result<(), Box<dyn Error>> {
+    // Get the filename from the command line
+    let fname = PathBuf::from(args().nth(1).ok_or("Expected filename")?);
+
+    // Pass filename to read_data
+    let result = read_data(&fname);
+
+    // Check if data was read successfully or if an error occurred
+    match result {
+        Ok(vec_data) => {
+            // Print the data
+            println!("{:?}", vec_data);
+        },
+        Err(err) => {
+            println!("An error occurred while reading the data: {}", err);
         }
     }
 
