@@ -6,6 +6,7 @@ use std::io::{BufRead, BufReader};
 use std::fs::File;
 use std::convert::TryFrom;
 use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Debug)]
 enum EnumLine {
@@ -41,7 +42,18 @@ impl ScoreStruct {
     fn total_score(&self) -> u32 {self.total_score}
     fn attended_tests(&self) -> u32 {self.attended_tests}
     fn missed_tests(&self) -> u32 {self.missed_tests}
+}
 
+impl fmt::Display for ScoreStruct {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let attended_test_or_tests = if self.attended_tests == 1 { "test" } else { "tests" };
+        let missed_test_or_tests = if self.missed_tests == 1 { "test" } else { "tests" };
+        write!(
+            f,"took {} {}, with a total score of {}. They missed {} {}",
+            self.attended_tests, attended_test_or_tests,
+            self.total_score, self.missed_tests,missed_test_or_tests
+        )
+    }
 }
 
 fn process_scores(lines: Vec<EnumLine>) -> HashMap<String, ScoreStruct> {
@@ -110,9 +122,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Check if data was read successfully or if an error occurred
     match result {
         Ok(vec_data) => {
-            // Print the data
-            for (name, score_struct) in &process_scores(vec_data) {
-                println!("{:?}: {:?}", name, score_struct);
+            for (name, score_struct) in process_scores(vec_data) {
+                println!("{} {}", name, score_struct);
             }
         },
         Err(err) => {
