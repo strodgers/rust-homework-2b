@@ -1,134 +1,129 @@
-use core::f32;
 use std::env::args;
 use std::error::Error;
 use std::path::PathBuf;
 use std::io::{BufRead, BufReader};
 use std::fs::File;
 use std::convert::TryFrom;
-use std::collections::HashMap;
 use std::fmt;
 
-#[derive(Debug)]
-enum EnumLine {
-    NameAndNumber(String, u32),
-    NameOnly(String)
+// Enum for the raw instructions
+enum RawInstruction {
+    IncrementPointer,     // >
+    DecrementPointer,     // <
+    IncrementByte,        // +
+    DecrementByte,        // -
+    OutputByte,           // .
+    InputByte,            // ,
+    ConditionalForward,   // [
+    ConditionalBackward,  // ]
 }
 
-#[derive(Default, Debug)]
-struct ScoreStruct {
-    total_score: u32,
-    attended_tests: u32,
-    missed_tests: u32,
-}
-
-#[allow(dead_code)] // TODO: remember to get rid of this
-impl ScoreStruct {
-    fn add_score(&mut self, score: u32) {
-        self.total_score += score;
-        self.attended_tests += 1;
-    }
-
-    fn missed_a_test(&mut self) {
-        self.missed_tests += 1;
-    }
-
-    fn average_score(&self) -> Option<f32> {
-        match self.total_score.checked_div(self.attended_tests) {
-            Some(_) => Some(self.total_score as f32 / self.attended_tests as f32),
-            None => None,
+// Implement a from_char method for RawInstruction
+impl RawInstruction {
+    fn from_char(c: &char) -> Option<RawInstruction> {
+        match c {
+            '>' => Some(RawInstruction::IncrementPointer),
+            '<' => Some(RawInstruction::DecrementPointer),
+            '+' => Some(RawInstruction::IncrementByte),
+            '-' => Some(RawInstruction::DecrementByte),
+            '.' => Some(RawInstruction::OutputByte),
+            ',' => Some(RawInstruction::InputByte),
+            '[' => Some(RawInstruction::ConditionalForward),
+            ']' => Some(RawInstruction::ConditionalBackward),
+            _ => None,
         }
     }
-
-    fn total_score(&self) -> u32 {self.total_score}
-    fn attended_tests(&self) -> u32 {self.attended_tests}
-    fn missed_tests(&self) -> u32 {self.missed_tests}
 }
 
-impl fmt::Display for ScoreStruct {
+// Corresponding display strings
+impl fmt::Display for RawInstruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let attended_test_or_tests = if self.attended_tests == 1 { "test" } else { "tests" };
-        let missed_test_or_tests = if self.missed_tests == 1 { "test" } else { "tests" };
-        write!(
-            f,"took {} {}, with a total score of {}. They missed {} {}",
-            self.attended_tests, attended_test_or_tests,
-            self.total_score, self.missed_tests,missed_test_or_tests
-        )
-    }
-}
-
-fn process_scores(lines: Vec<EnumLine>) -> HashMap<String, ScoreStruct> {
-    // Go through the scores, adding them to the hashmap
-    let mut scores_map: HashMap<String, ScoreStruct> = HashMap::new();
-    for line in lines {
-        match line {
-            // If there's a name and a score, add it to the hashmap
-            EnumLine::NameAndNumber(name, score) => {
-                scores_map.entry(name).or_default().add_score(score);
-            },
-            // If there's only a name, assume they missed a test (naughty)
-            EnumLine::NameOnly(name) => {
-                scores_map.entry(name).or_default().missed_a_test();
-            },
+        match self {
+            RawInstruction::IncrementPointer => write!(f, "Increment Pointer (>)"),
+            RawInstruction::DecrementPointer => write!(f, "Decrement Pointer (<)"),
+            RawInstruction::IncrementByte => write!(f, "Increment Byte (+)"),
+            RawInstruction::DecrementByte => write!(f, "Decrement Byte (-)"),
+            RawInstruction::OutputByte => write!(f, "Output Byte (.)"),
+            RawInstruction::InputByte => write!(f, "Input Byte (,)"),
+            RawInstruction::ConditionalForward => write!(f, "Conditional Forward ([)"),
+            RawInstruction::ConditionalBackward => write!(f, "Conditional Backward (])"),
         }
     }
-
-    return scores_map;
 }
 
-impl TryFrom<&String> for EnumLine {
+// Probably unnecessary but I like it
+impl TryFrom<&char> for RawInstruction {
     type Error = Box<dyn Error>;
+    fn try_from(value: &char) -> Result<Self, Self::Error> {
+        return RawInstruction::from_char(value).ok_or("Invalid character".into());
+    }
+}
 
-    fn try_from(value: &String) -> Result<Self, Self::Error> {
-        // Split the line
-        let mut iter = value.split(":");
+// Struct for the human readable instructions which includes a RawInstruction and the line and column index
+struct HumanReadableInstruction {
+    instruction: RawInstruction,
+    line: usize,
+    column: usize,
+}
 
-        // Get the name
-        let name = iter.next().ok_or("Expected name string")?;
-
-        // Get the number, if it fails assume name only
-        match iter.next() {
-            Some(number_str) => 
-                return Ok(EnumLine::NameAndNumber(name.to_string(), number_str.parse::<u32>()?)),
-            None => return Ok(EnumLine::NameOnly(name.to_string()))
+impl HumanReadableInstruction {
+    fn new(instruction: RawInstruction, line: usize, column: usize) -> Self {
+        return HumanReadableInstruction {
+            instruction,
+            line,
+            column,
         }
     }
 }
 
-fn read_data(fname: &PathBuf) -> Result<Vec<EnumLine>, Box<dyn std::error::Error>> {
-    // Read the data and parse into a vector of EnumLine
+// Nice display string
+impl fmt::Display for HumanReadableInstruction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        return write!(f, ":{}:{}] {}", self.line, self.column, self.instruction);
+    }
+}
+
+fn read_data(fname: &PathBuf) -> Result<Vec<HumanReadableInstruction>, Box<dyn std::error::Error>> {
+    // Read the data and parse into a vector of HumanReadableInstruction
     let buffread = BufReader::new(File::open(fname)?);
     let mut vec = Vec::new();
 
-    for line_result in buffread.lines() {
+    // Go through each line
+    for (line_idx, line_result) in buffread.lines().enumerate() {
         let line = line_result?;
-        match EnumLine::try_from(&line) {
-            Ok(enum_line) => vec.push(enum_line),
-            Err(err) => {
-                println!("Error encountered: {}", err);
-                return Err(err);
+        
+        // Go through each character
+        for (col_idx, c) in line.chars().enumerate() {
+            match RawInstruction::try_from(&c) {
+                Ok(instruction) => {
+                    // I am adding 1 to the column and row index here for human readability,
+                    // although that does make my output column index 1 off the example given
+                    // in the homework description...
+                    vec.push(HumanReadableInstruction::new(instruction, line_idx + 1, col_idx + 1));
+                    // println!("Valid character {} at line {} column {}",  c, line_idx + 1, col_idx + 1);
+                },
+                Err(_) => {
+                // println!("Invalid character {} at line {} column {}", c, line_idx + 1, col_idx + 1);
+                }
             }
         }
     }
 
     return Ok(vec);
 }
+
 fn main() -> Result<(), Box<dyn Error>> {
     // Get the filename from the command line
-    let fname = PathBuf::from(args().nth(1).ok_or("Expected filename")?);
+    let fname = args().nth(1).ok_or("Expected filename")?;
+    let fbuf = PathBuf::from(&fname);
 
     // Pass filename to read_data
-    let result = read_data(&fname);
+    let result = read_data(&fbuf);
 
-    // Check if data was read successfully or if an error occurred
-    match result {
-        Ok(vec_data) => {
-            for (name, score_struct) in process_scores(vec_data) {
-                println!("{} {}", name, score_struct);
-            }
-        },
-        Err(err) => {
-            println!("An error occurred while reading the data: {}", err);
-        }
+    // I do not like that the opening square bracket is here but the closing square bracket is 
+    // in the HumanReadableInstruction struct. However it is late now
+    for instruction in result? {
+        println!("[{}{}", fname, instruction);
     }
 
     Ok(())

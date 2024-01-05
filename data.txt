@@ -1,24 +1,21 @@
-Harry:9
-Susan:4
-Gregory:3
-Ulrika:10
-Daniel Silverstone:9
-Fred Jones:10
-Harry:4
-Susan
-Gregory:7
-Ulrika:9
-Daniel Silverstone:7
-Fred Jones:7
-Harry:6
-Susan:6
-Gregory:9
-Ulrika:10
-Daniel Silverstone
-Fred Jones:4
-Harry:7
-Susan:9
-Gregory:8
-Ulrika:7
-Daniel Silverstone:10
-Fred Jones
+This is your input file
+
+Anything which is not one of the important characters will be ignored
+by the program
+
+The program is as follows:
+
+    +[-
+        [<<
+        [+
+        [--->]
+        -[<<<]
+        ]
+    ]>>>-
+    ]
+
+I'm guessing that you know where we're going with all this
+
+    >-.---.>..>.<<<<-.<+.>>>>>.>.<<.<-.
+
+But perhaps you're as lost as a little lamb?
