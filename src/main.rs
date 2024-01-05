@@ -1,21 +1,21 @@
+use std::convert::TryFrom;
 use std::env::args;
 use std::error::Error;
-use std::path::PathBuf;
-use std::io::{BufRead, BufReader};
-use std::fs::File;
-use std::convert::TryFrom;
 use std::fmt;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
+use std::path::PathBuf;
 
 // Enum for the raw instructions
 enum RawInstruction {
-    IncrementPointer,     // >
-    DecrementPointer,     // <
-    IncrementByte,        // +
-    DecrementByte,        // -
-    OutputByte,           // .
-    InputByte,            // ,
-    ConditionalForward,   // [
-    ConditionalBackward,  // ]
+    IncrementPointer,    // >
+    DecrementPointer,    // <
+    IncrementByte,       // +
+    DecrementByte,       // -
+    OutputByte,          // .
+    InputByte,           // ,
+    ConditionalForward,  // [
+    ConditionalBackward, // ]
 }
 
 // Implement a from_char method for RawInstruction
@@ -55,7 +55,7 @@ impl fmt::Display for RawInstruction {
 impl TryFrom<&char> for RawInstruction {
     type Error = Box<dyn Error>;
     fn try_from(value: &char) -> Result<Self, Self::Error> {
-        return RawInstruction::from_char(value).ok_or("Invalid character".into());
+        RawInstruction::from_char(value).ok_or("Invalid character".into())
     }
 }
 
@@ -68,7 +68,7 @@ struct HumanReadableInstruction {
 
 impl HumanReadableInstruction {
     fn new(instruction: RawInstruction, line: usize, column: usize) -> Self {
-        return HumanReadableInstruction {
+        HumanReadableInstruction {
             instruction,
             line,
             column,
@@ -79,7 +79,7 @@ impl HumanReadableInstruction {
 // Nice display string
 impl fmt::Display for HumanReadableInstruction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        return write!(f, ":{}:{}] {}", self.line, self.column, self.instruction);
+        write!(f, ":{}:{}] {}", self.line, self.column, self.instruction)
     }
 }
 
@@ -91,7 +91,7 @@ fn read_data(fname: &PathBuf) -> Result<Vec<HumanReadableInstruction>, Box<dyn s
     // Go through each line
     for (line_idx, line_result) in buffread.lines().enumerate() {
         let line = line_result?;
-        
+
         // Go through each character
         for (col_idx, c) in line.chars().enumerate() {
             match RawInstruction::try_from(&c) {
@@ -99,17 +99,21 @@ fn read_data(fname: &PathBuf) -> Result<Vec<HumanReadableInstruction>, Box<dyn s
                     // I am adding 1 to the column and row index here for human readability,
                     // although that does make my output column index 1 off the example given
                     // in the homework description...
-                    vec.push(HumanReadableInstruction::new(instruction, line_idx + 1, col_idx + 1));
+                    vec.push(HumanReadableInstruction::new(
+                        instruction,
+                        col_idx + 1,
+                        line_idx + 1,
+                    ));
                     // println!("Valid character {} at line {} column {}",  c, line_idx + 1, col_idx + 1);
-                },
+                }
                 Err(_) => {
-                // println!("Invalid character {} at line {} column {}", c, line_idx + 1, col_idx + 1);
+                    // println!("Invalid character {} at line {} column {}", c, line_idx + 1, col_idx + 1);
                 }
             }
         }
     }
 
-    return Ok(vec);
+    Ok(vec)
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -120,7 +124,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Pass filename to read_data
     let result = read_data(&fbuf);
 
-    // I do not like that the opening square bracket is here but the closing square bracket is 
+    // I do not like that the opening square bracket is here but the closing square bracket is
     // in the HumanReadableInstruction struct. However it is late now
     for instruction in result? {
         println!("[{}{}", fname, instruction);
